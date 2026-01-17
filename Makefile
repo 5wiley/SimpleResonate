@@ -19,7 +19,7 @@ C_SOURCES = \
 	${CMSIS_DSP_SRC_DIR}/ControllerFunctions/arm_sin_cos_f32.c
 
 CPP_SOURCES = \
-	main.cpp \
+	source/main.cpp \
 	source/Controls.cpp \
 	source/Engine.cpp \
 
