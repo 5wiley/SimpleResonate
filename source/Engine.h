@@ -8,6 +8,12 @@
 // #include "EchoDelay.h"
 // #include "KarplusString.h"
 
+// === INTEGRATION CODE - NOT FROM ORIGINAL STRINGS ===
+#include "dsp/part.h"
+#include "dsp/patch.h"
+#include "dsp/performance_state.h"
+// ===================================================
+
 #ifdef __arm__
 #include <dev/sdram.h>
 #endif
@@ -39,42 +45,41 @@ public:
 
   void SetOutputLevel(const float level);
 
-  void ProcessAudio(float& outL, float& outR);
+  // Strings DSP parameter setters
+  void SetStructure(float structure);
+  void SetBrightness(float brightness);
+  void SetDamping(float damping);
+  void SetPosition(float position);
+  void SetNote(float note_midi);
+  void SetTonic(float tonic_midi);
+  void SetChord(int32_t chord);
+  void SetStrum(bool strum);
+
+  // Part instance (public for direct access in main.cpp)
+  resonate::Part part_;
+
+  // State getters (for AudioCallback)
+  const resonate::Patch& GetPatch() const { return patch_; }
+  const resonate::PerformanceState& GetPerformanceState() const { return perf_state_; }
+  float GetOutputLevel() const { return output_level_; }
 
   void ProcessCv(uint16_t& out0, uint16_t& out1);
 
 private:
-  // // long enough for 250ms at 48kHz
-  // static constexpr size_t kMaxFeedbackDelaySamp = 12000;
-  // // long enough for 5s at 48kHz
-  // static constexpr size_t kMaxEchoDelaySamp = 48000 * 5;
+  // DSP state structures
+  resonate::Patch patch_;
+  resonate::PerformanceState perf_state_;
 
-  // float sample_rate_;
-  // float fb_gain_ = 0.0f;
-  // float echo_send_ = 0.0f;
-  // float verb_mix_ = 0.0f;
+  // Reverb buffer (allocated in SDRAM)
+  uint16_t* reverb_buffer_ = nullptr;
+
+  // Trigger edge detection
+  bool prev_trigger_state_ = false;
+
   float output_level_ = 0.5f;
 
   int testCounter = 0;
   int testRamp = 0;
-
-  // float fb_delay_smooth_coef_;
-  // float fb_delay_samp_ = 1000.f;
-  // float fb_delay_samp_target_ = 64.f;
-
-  // deleteme::KarplusString strings_[2];
-  daisysp::WhiteNoise noise_;
-  // daisysp::DelayLine<float, kMaxFeedbackDelaySamp> fb_delayline_[2];
-  // daisysp::Overdrive overdrive_[2];
-
-  // LPF12 fb_lpf_;
-  // HPF12 fb_hpf_;
-
-  // using VerbPtr = std::unique_ptr<daisysp::ReverbSc>;
-  // VerbPtr verb_;
-
-  // using EchoDelayPtr = std::unique_ptr<EchoDelay<kMaxEchoDelaySamp>>;
-  // EchoDelayPtr echo_delay_[2];
 
   Engine(const Engine& other) = delete;
   Engine(Engine&& other) = delete;

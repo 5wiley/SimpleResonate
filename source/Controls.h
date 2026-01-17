@@ -28,14 +28,19 @@ public:
 private:
   // Identifies a parameter of the synth engine
   // The order here is the same order as the ADC pin configs in the cpp file
-  static const size_t kNumAdcChannels = 1;
+  static const size_t kNumAdcChannels = 7;
   enum class Parameter : uint8_t {
-    // OutputVolume moved to CV
+    Structure,      // 0
+    Brightness,     // 1
+    Damping,        // 2
+    Position,       // 3
   };
 
   // CV inputs (audio-rate, no smoothing)
   enum class CV : uint8_t {
-    OutputVolume  // 1
+    OutputVolume,   // 0
+    Note,           // 1 - V/Oct pitch
+    Strum,          // 2 - Gate/trigger
   };
 
   using Parameters = ParameterRegistry<Parameter>;

@@ -29,8 +29,13 @@ using namespace daisy;
 
 // TODO: Add footprint numbers to these
 
-static constexpr daisy::Pin kOutputVolumeAdcPin = daisy::seed::A0;  // 30
-static constexpr daisy::Pin kOutputVolumeCvPin = daisy::seed::A1;   // 31
+static constexpr daisy::Pin kStructureAdcPin = daisy::seed::A0;     // 30
+static constexpr daisy::Pin kBrightnessAdcPin = daisy::seed::A1;    // 31
+static constexpr daisy::Pin kDampingAdcPin = daisy::seed::A2;       // 32
+static constexpr daisy::Pin kPositionAdcPin = daisy::seed::A3;      // 33
+static constexpr daisy::Pin kOutputVolumeAdcPin = daisy::seed::A4;  // 34
+static constexpr daisy::Pin kNoteCvPin = daisy::seed::A5;           // 35
+static constexpr daisy::Pin kStrumCvPin = daisy::seed::A6;          // 36
 
 void Controls::Init(DaisySeed& hw, Engine& engine) {
   params_.Init(hw.AudioSampleRate() / hw.AudioBlockSize());
@@ -44,36 +49,27 @@ void Controls::Init(DaisySeed& hw, Engine& engine) {
 }
 
 void Controls::UpdateParameter(DaisySeed& hw) {
-  /*
-  params_.UpdateNormalized(Parameter::Frequency, 1.0f - hw.adc.GetFloat(0));
-  params_.UpdateNormalized(Parameter::FeedbackGain, 1.0f - hw.adc.GetFloat(1));
-  params_.UpdateNormalized(Parameter::FeedbackBody, 1.0f - hw.adc.GetFloat(2));
-  params_.UpdateNormalized(Parameter::FeedbackLPFCutoff,
-                           1.0f - hw.adc.GetFloat(3));
-  params_.UpdateNormalized(Parameter::FeedbackHPFCutoff,
-                           1.0f - hw.adc.GetFloat(4));
-  params_.UpdateNormalized(Parameter::ReverbMix, 1.0f - hw.adc.GetFloat(5));
-  // Special mapping for reverb feedback/decay (anti-exponential tension
-  curve) params_.UpdateNormalized(Parameter::ReverbDecay, ftension(1.0f -
-  hw.adc.GetFloat(6), -3.0f));
-  params_.UpdateNormalized(Parameter::EchoDelaySend, 1.0f - hw.adc.GetFloat(7));
-  // Delay switch doubles or halves delay time instantly for doppler warp
-  del_sw_.Debounce();
-  float delay_norm = 1.0f - hw.adc.GetFloat(8);
-  float delay_scale = del_sw_.Pressed() ? 0.5f : 1.0f;
-  params_.UpdateNormalized(Parameter::EchoDelayTime, delay_norm * delay_scale);
-  params_.UpdateNormalized(Parameter::EchoDelayFeedback,
-                           1.0f - hw.adc.GetFloat(9));
- */
+  params_.UpdateNormalized(Parameter::Structure, hw.adc.GetFloat(0));
+  params_.UpdateNormalized(Parameter::Brightness, hw.adc.GetFloat(1));
+  params_.UpdateNormalized(Parameter::Damping, hw.adc.GetFloat(2));
+  params_.UpdateNormalized(Parameter::Position, hw.adc.GetFloat(3));
 }
 
 void Controls::UpdateCv(DaisySeed& hw) {
-  cv_.UpdateNormalized(CV::OutputVolume, hw.adc.GetFloat(0));
+  cv_.UpdateNormalized(CV::OutputVolume, hw.adc.GetFloat(4));
+  cv_.UpdateNormalized(CV::Note, hw.adc.GetFloat(5));
+  cv_.UpdateNormalized(CV::Strum, hw.adc.GetFloat(6));
 }
 
 void Controls::initADCs(DaisySeed& hw) {
   AdcChannelConfig config[kNumAdcChannels];
-  config[0].InitSingle(kOutputVolumeAdcPin);
+  config[0].InitSingle(kStructureAdcPin);
+  config[1].InitSingle(kBrightnessAdcPin);
+  config[2].InitSingle(kDampingAdcPin);
+  config[3].InitSingle(kPositionAdcPin);
+  config[4].InitSingle(kOutputVolumeAdcPin);
+  config[5].InitSingle(kNoteCvPin);
+  config[6].InitSingle(kStrumCvPin);
 
   hw.adc.Init(config, kNumAdcChannels);
   hw.adc.Start();
@@ -82,57 +78,37 @@ void Controls::initADCs(DaisySeed& hw) {
 void Controls::registerParams(Engine& engine) {
   using namespace std::placeholders;
 
-  // // String freq/pitch as note number
-  // params_.Register(Parameter::Frequency, 40.0f, 16.0f, 72.0f,
-  //     std::bind(&Engine::SetStringPitch, &engine, _1), 0.2f);
+  // Patch parameters: control-rate with 50ms smoothing
+  params_.Register(Parameter::Structure, 0.5f, 0.0f, 1.0f,
+      std::bind(&Engine::SetStructure, &engine, _1), 0.05f);
 
-  // // Feedback Gain in dbFS
-  // params_.Register(Parameter::FeedbackGain, -60.0f, -60.0f, 12.0f,
-  //     std::bind(&Engine::SetFeedbackGain, &engine, _1));
+  params_.Register(Parameter::Brightness, 0.5f, 0.0f, 1.0f,
+      std::bind(&Engine::SetBrightness, &engine, _1), 0.05f);
 
-  // // Feedback body/delay in seconds
-  // params_.Register(Parameter::FeedbackBody, 0.001f, 0.001f, 0.1f,
-  //     std::bind(&Engine::SetFeedbackDelay, &engine, _1), 1.0f,
-  //     daisysp::Mapping::EXP);
+  params_.Register(Parameter::Damping, 0.5f, 0.0f, 1.0f,
+      std::bind(&Engine::SetDamping, &engine, _1), 0.05f);
 
-  // // Feedback filter cutoffs in hz
-  // params_.Register(Parameter::FeedbackLPFCutoff, 18000.0f, 100.0f, 18000.0f,
-  //     std::bind(&Engine::SetFeedbackLPFCutoff, &engine, _1), 0.05f,
-  //     daisysp::Mapping::LOG);
-  // params_.Register(Parameter::FeedbackHPFCutoff, 250.0f, 10.0f, 4000.0f,
-  //     std::bind(&Engine::SetFeedbackHPFCutoff, &engine, _1), 0.05f,
-  //     daisysp::Mapping::LOG);
-
-  // // Reverb Mix
-  // params_.Register(Parameter::ReverbMix, 0.0f, 0.0f, 1.0f,
-  //     std::bind(&Engine::SetReverbMix, &engine, _1));
-
-  // // Reverb Feedback (input is mapped to anti-exponential on ADC read)
-  // params_.Register(Parameter::ReverbDecay, 0.2f, 0.2f, 1.0f,
-  //     std::bind(&Engine::SetReverbFeedback, &engine, _1));
-
-  // // Echo Delay send
-  // params_.Register(Parameter::EchoDelaySend, 0.0f, 0.0f, 1.0f,
-  //     std::bind(&Engine::SetEchoDelaySendAmount, &engine, _1), 0.05f,
-  //     daisysp::Mapping::EXP);
-
-  // // Echo Delay time in s
-  // params_.Register(Parameter::EchoDelayTime, 0.5f, 0.05f, 5.0f,
-  //     std::bind(&Engine::SetEchoDelayTime, &engine, _1), 0.1f,
-  //     daisysp::Mapping::EXP);
-
-  // // Echo Delay feedback
-  // params_.Register(Parameter::EchoDelayFeedback, 0.0f, 0.0f, 1.5f,
-  //     std::bind(&Engine::SetEchoDelayFeedback, &engine, _1));
-
-  // No parameters currently - OutputVolume moved to CV
+  params_.Register(Parameter::Position, 0.5f, 0.0f, 1.0f,
+      std::bind(&Engine::SetPosition, &engine, _1), 0.05f);
 }
 
 void Controls::registerCVs(Engine& engine) {
   using namespace std::placeholders;
 
-  // Output level - audio rate CV input without smoothing
+  // Output volume: audio-rate, exponential scaling
   cv_.Register(CV::OutputVolume, 0.5f, 0.0f, 1.0f,
                std::bind(&Engine::SetOutputLevel, &engine, _1),
                daisysp::Mapping::EXP);
+
+  // Note CV: V/Oct input, 0V = MIDI 24 (C1), 5V = MIDI 108 (C8)
+  cv_.Register(CV::Note, 60.0f, 24.0f, 108.0f,
+               std::bind(&Engine::SetNote, &engine, _1),
+               daisysp::Mapping::LINEAR);
+
+  // Strum: Gate/trigger input, >2.5V triggers new note
+  cv_.Register(CV::Strum, 0.0f, 0.0f, 1.0f,
+               [&engine](float val) {
+                 engine.SetStrum(val > 0.5f);  // 2.5V threshold
+               },
+               daisysp::Mapping::LINEAR);
 }

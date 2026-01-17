@@ -6,47 +6,31 @@ using namespace SimpleRack;
 using namespace daisysp;
 
 void Engine::Init(const float sample_rate) {
-  // using ED = EchoDelay<kMaxEchoDelaySamp>;
+  // Allocate reverb buffer: 32,768 uint16_t = 64KB
+  reverb_buffer_ = SDRAM::allocate_buf<uint16_t>(32768);
 
-  // echo_delay_[0] = EchoDelayPtr(SDRAM::allocate<ED>());
-  // echo_delay_[1] = EchoDelayPtr(SDRAM::allocate<ED>());
-  // verb_ = VerbPtr(SDRAM::allocate<ReverbSc>());
+  // Initialize Part (from Strings DSP)
+  part_.Init(reverb_buffer_);
+  part_.set_polyphony(4);
+  part_.set_model(resonate::RESONATOR_MODEL_MODAL);
 
-  // sample_rate_ = sample_rate;
-  // fb_delay_smooth_coef_ = onepole_coef(0.2f, sample_rate);
+  // Initialize patch defaults (0.5 = middle of range)
+  patch_.structure = 0.5f;
+  patch_.brightness = 0.5f;
+  patch_.damping = 0.5f;
+  patch_.position = 0.5f;
 
-  noise_.Init();
-  noise_.SetAmp(1);  // VERY LOUD
+  // Initialize performance state
+  perf_state_.strum = false;
+  perf_state_.internal_exciter = true;   // Use internal plucker
+  perf_state_.internal_strum = false;
+  perf_state_.internal_note = false;
+  perf_state_.note = 60.0f;              // Middle C
+  perf_state_.tonic = 48.0f;             // C3
+  perf_state_.fm = 0.0f;
+  perf_state_.chord = 0;
 
-  // for (unsigned int i = 0; i < 2; i++) {
-
-  //   strings_[i].Init(sample_rate);
-  //   strings_[i].SetBrightness(0.98f);
-  //   strings_[i].SetFreq(mtof(40.0f));
-  //   strings_[i].SetDamping(0.4f);
-
-  //   fb_delayline_[i].Init();
-
-  //   echo_delay_[i]->Init(sample_rate);
-  //   echo_delay_[i]->SetDelayTime(5.0f, true);
-  //   echo_delay_[i]->SetFeedback(0.5f);
-  //   echo_delay_[i]->SetLagTime(0.5f);
-
-  //   overdrive_[i].Init();
-  //   overdrive_[i].SetDrive(0.4);
-  // }
-
-  // verb_->Init(sample_rate);
-  // verb_->SetFeedback(0.85f);
-  // verb_->SetLpFreq(12000.0f);
-
-  // fb_lpf_.Init(sample_rate);
-  // fb_lpf_.SetQ(0.9f);
-  // fb_lpf_.SetCutoff(18000.0f);
-
-  // fb_hpf_.Init(sample_rate);
-  // fb_hpf_.SetQ(0.9f);
-  // fb_hpf_.SetCutoff(60.f);
+  prev_trigger_state_ = false;
 }
 
 // void Engine::SetStringPitch(const float nn) {
@@ -98,21 +82,42 @@ void Engine::SetOutputLevel(const float level) {
   output_level_ = level;
 }
 
-void Engine::ProcessAudio(float& outL, float& outR) {
-  // // --- Update audio-rate-smoothed control params ---
+void Engine::SetStructure(float structure) {
+  patch_.structure = fclamp(structure, 0.0f, 1.0f);
+}
 
-  // fonepole(fb_delay_samp_, fb_delay_samp_target_, fb_delay_smooth_coef_);
+void Engine::SetBrightness(float brightness) {
+  patch_.brightness = fclamp(brightness, 0.0f, 1.0f);
+}
 
-  // // --- Process Samples ---
+void Engine::SetDamping(float damping) {
+  patch_.damping = fclamp(damping, 0.0f, 1.0f);
+}
 
-  float /* inL, inR, */ sampL, sampR /* , echoL, echoR, verbL, verbR */;
+void Engine::SetPosition(float position) {
+  patch_.position = fclamp(position, 0.0f, 1.0f);
+}
 
-  sampL = noise_.Process();
-  sampR = noise_.Process();
+void Engine::SetNote(float note_midi) {
+  perf_state_.note = note_midi;
+}
 
-  // ---> Output
-  outL = sampL * output_level_;
-  outR = sampR * output_level_;
+void Engine::SetTonic(float tonic_midi) {
+  perf_state_.tonic = tonic_midi;
+}
+
+void Engine::SetChord(int32_t chord) {
+  perf_state_.chord = fclamp(chord, 0, 10);
+}
+
+void Engine::SetStrum(bool strum) {
+  // Detect rising edge for trigger
+  if (strum && !prev_trigger_state_) {
+    perf_state_.strum = true;
+  } else if (!strum) {
+    perf_state_.strum = false;
+  }
+  prev_trigger_state_ = strum;
 }
 
 void Engine::ProcessCv(uint16_t& out0, uint16_t& out1) {

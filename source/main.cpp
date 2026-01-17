@@ -16,14 +16,29 @@ static Controls controls;
 void AudioCallback(AudioHandle::InputBuffer in,
                    AudioHandle::OutputBuffer out,
                    size_t size) {
+  // 1. Update control-rate parameters once per block
   controls.UpdateParameter(hw);
-  controls.Process();
+  controls.Process();  // Apply smoothing
+
+  // 2. Update audio-rate CV once per block (not per-sample!)
+  controls.UpdateCv(hw);
+
+  // 3. Process entire block through Part (Strings DSP)
+  engine.part_.Process(
+    engine.GetPerformanceState(),  // Strum, note, tonic, fm, chord
+    engine.GetPatch(),              // Structure, brightness, damping, position
+    IN_L,                           // Input buffer (const float*)
+    OUT_L,                          // Left output buffer (float*)
+    OUT_R,                          // Right output buffer (float*)
+    size                            // Block size (48 samples)
+  );
+
+  // 4. Apply output level scaling
+  float output_level = engine.GetOutputLevel();
   for (size_t i = 0; i < size; i++) {
-    controls.UpdateCv(hw);
-    engine.ProcessAudio(OUT_L[i], OUT_R[i]);
+    OUT_L[i] *= output_level;
+    OUT_R[i] *= output_level;
   }
-  // limiter[0].ProcessBlock(OUT_L, size, 0.7f);
-  // limiter[1].ProcessBlock(OUT_R, size, 0.7f);
 }
 
 void DacCallback(uint16_t** out, size_t size) {
