@@ -3,7 +3,6 @@ TARGET = YourProjectName
 
 LIBDAISY_DIR = lib/libDaisy
 DAISYSP_DIR = lib/DaisySP
-STMLIB_Dir = lib/stmlib
 CMSIS_DSP_SRC_DIR = ${LIBDAISY_DIR}/Drivers/CMSIS-DSP/Source
 
 C_DEFS = -DTARGET_DAISY
