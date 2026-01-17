@@ -34,7 +34,7 @@
 #include "stmlib/dsp/dsp.h"
 
 #include "dsp/fx/fx_engine.h"
-#include "resources.h"
+#include "dsp/resources.h"
 
 namespace resonate
 {
