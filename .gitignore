@@ -1,0 +1,18 @@
+.DS_Store
+*.pyc
+**/__pycache__
+**/build
+.vscode/*.log
+.vscode
+
+compile_commands.json
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
