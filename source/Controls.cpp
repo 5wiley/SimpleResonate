@@ -40,7 +40,6 @@ static constexpr daisy::Pin kStrumButtonPin = daisy::seed::D7;      // 06
 
 void Controls::Init(DaisySeed& hw, Engine& engine) {
   params_.Init(hw.AudioSampleRate() / hw.AudioBlockSize());
-  // CVRegistry doesn't need Init() - it works at audio rate without smoothing
 
   strum_button_.Init(
       kStrumButtonPin,
@@ -51,7 +50,6 @@ void Controls::Init(DaisySeed& hw, Engine& engine) {
 
   initADCs(hw);
   registerParams(engine);
-  registerCVs(engine);
 }
 
 void Controls::UpdateParameter(DaisySeed& hw) {
@@ -59,28 +57,23 @@ void Controls::UpdateParameter(DaisySeed& hw) {
   params_.UpdateNormalized(Parameter::Brightness, hw.adc.GetFloat(1));
   params_.UpdateNormalized(Parameter::Damping, hw.adc.GetFloat(2));
   params_.UpdateNormalized(Parameter::Position, hw.adc.GetFloat(3));
+  params_.UpdateNormalized(Parameter::OutputVolume, hw.adc.GetFloat(4));
+  params_.UpdateNormalized(Parameter::Note, hw.adc.GetFloat(5));
 
-  // Debounce button
   strum_button_.Debounce();
+
+  bool button_trigger = strum_button_.RisingEdge();
 
   // Gate-to-trigger conversion for CV input (detect rising edge)
   bool strum_cv_gate = hw.adc.GetFloat(6) > 0.5f;  // 2.5V threshold for 0-5V input
   bool strum_cv_trigger = strum_cv_gate && !prev_strum_cv_gate_;
   prev_strum_cv_gate_ = strum_cv_gate;
 
-  // Button trigger (RisingEdge() already handles edge detection)
-  bool button_trigger = strum_button_.RisingEdge();
-
-  // Combine triggers: output trigger pulse if either source triggers
   bool combined_trigger = strum_cv_trigger || button_trigger;
-
-  // Always update the CV value to ensure it goes high then low
-  cv_.UpdateNormalized(CV::Strum, combined_trigger ? 1.0f : 0.0f);
+  params_.UpdateNormalized(Parameter::Strum, combined_trigger ? 1.0f : 0.0f);
 }
 
 void Controls::UpdateCv(DaisySeed& hw) {
-  cv_.UpdateNormalized(CV::OutputVolume, hw.adc.GetFloat(4));
-  cv_.UpdateNormalized(CV::Note, hw.adc.GetFloat(5));
 }
 
 void Controls::initADCs(DaisySeed& hw) {
@@ -102,33 +95,28 @@ void Controls::registerParams(Engine& engine) {
 
   // Patch parameters: control-rate with 50ms smoothing
   params_.Register(Parameter::Structure, 0.5f, 0.0f, 1.0f,
-      std::bind(&Engine::SetStructure, &engine, _1), 0.05f);
+      std::bind(&Engine::SetStructure, &engine, _1), 0.05f, daisysp::Mapping::LINEAR);
 
   params_.Register(Parameter::Brightness, 0.5f, 0.0f, 1.0f,
-      std::bind(&Engine::SetBrightness, &engine, _1), 0.05f);
+      std::bind(&Engine::SetBrightness, &engine, _1), 0.05f, daisysp::Mapping::LINEAR);
 
   params_.Register(Parameter::Damping, 0.5f, 0.0f, 1.0f,
-      std::bind(&Engine::SetDamping, &engine, _1), 0.05f);
+      std::bind(&Engine::SetDamping, &engine, _1), 0.05f, daisysp::Mapping::LINEAR);
 
   params_.Register(Parameter::Position, 0.5f, 0.0f, 1.0f,
-      std::bind(&Engine::SetPosition, &engine, _1), 0.05f);
-}
+      std::bind(&Engine::SetPosition, &engine, _1), 0.05f, daisysp::Mapping::LINEAR);
 
-void Controls::registerCVs(Engine& engine) {
-  using namespace std::placeholders;
-
-  // Output volume: audio-rate, exponential scaling
-  cv_.Register(CV::OutputVolume, 0.5f, 0.0f, 1.0f,
-               std::bind(&Engine::SetOutputLevel, &engine, _1),
+  params_.Register(Parameter::OutputVolume, 0.5f, 0.0f, 1.0f,
+               std::bind(&Engine::SetOutputLevel, &engine, _1), 0.0f,
                daisysp::Mapping::EXP);
 
   // Note CV: V/Oct input, 0V = MIDI 24 (C1), 5V = MIDI 108 (C8)
-  cv_.Register(CV::Note, 60.0f, 24.0f, 108.0f,
-               std::bind(&Engine::SetNote, &engine, _1),
+  params_.Register(Parameter::Note, 60.0f, 24.0f, 108.0f,
+               std::bind(&Engine::SetNote, &engine, _1), 0.0f,
                daisysp::Mapping::LINEAR);
 
   // Strum: Gate/trigger input, >2.5V triggers new note
-  cv_.Register(CV::Strum, 0.0f, 0.0f, 1.0f,
-              std::bind(&Engine::SetStrum, &engine, _1),
+  params_.Register(Parameter::Strum, 0.0f, 0.0f, 1.0f,
+              std::bind(&Engine::SetStrum, &engine, _1), 0.0f,
                daisysp::Mapping::LINEAR);
 }

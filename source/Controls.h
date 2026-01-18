@@ -6,7 +6,6 @@
 #include <daisy_seed.h>
 #include "Engine.h"
 #include "ParameterRegistry.h"
-#include "CVRegistry.h"
 
 namespace SimpleRack {
 
@@ -22,7 +21,6 @@ public:
 
   void Process() {
     params_.Process();
-    cv_.Process();
   }
 
 private:
@@ -34,27 +32,20 @@ private:
     Brightness,     // 1
     Damping,        // 2
     Position,       // 3
-  };
-
-  // CV inputs (audio-rate, no smoothing)
-  enum class CV : uint8_t {
-    OutputVolume,   // 0
-    Note,           // 1 - V/Oct pitch
-    Strum,          // 2 - Gate/trigger
+    OutputVolume,
+    Note,
+    Strum
   };
 
   using Parameters = ParameterRegistry<Parameter>;
-  using CVs = CVRegistry<CV>;
 
   Parameters params_;
-  CVs cv_;
 
   daisy::Switch strum_button_;
-  bool prev_strum_cv_gate_ = false;  // For CV gate-to-trigger conversion
+  bool prev_strum_cv_gate_ = false;
 
   void initADCs(daisy::DaisySeed& hw);
   void registerParams(Engine& engine);
-  void registerCVs(Engine& engine);
 };
 
 }  // namespace SimpleRack
