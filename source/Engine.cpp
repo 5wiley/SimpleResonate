@@ -1,16 +1,15 @@
 #include "Engine.h"
 #include "DSPUtils.h"
-#include "memory/sdram_alloc.h"
 
 using namespace SimpleRack;
 using namespace daisysp;
 
-void Engine::Init(const float sample_rate) {
-  // Allocate reverb buffer: 32,768 uint16_t = 64KB
-  reverb_buffer_ = SDRAM::allocate_buf<uint16_t>(32768);
+// Static reverb buffer for Part (64KB)
+uint16_t reverb_buffer[32768];
 
+void Engine::Init(const float sample_rate) {
   // Initialize Part (from Strings DSP)
-  part_.Init(reverb_buffer_);
+  part_.Init(reverb_buffer);
   part_.set_polyphony(4);
   part_.set_model(resonate::RESONATOR_MODEL_MODAL);
 
@@ -120,20 +119,38 @@ void Engine::SetStrum(bool strum) {
   prev_trigger_state_ = strum;
 }
 
+void Engine::ProcessAudio(const float* in, float* out_l, float* out_r, size_t size) {
+  // Process block through Part (original Rings DSP)
+  part_.Process(
+    perf_state_,   // Strum, note, tonic, fm, chord
+    patch_,        // Structure, brightness, damping, position
+    in,            // Input buffer
+    out_l,         // Left output buffer
+    out_r,         // Right output buffer
+    size           // Block size
+  );
+
+  // Apply output level scaling
+  for (size_t i = 0; i < size; i++) {
+    out_l[i] *= output_level_;
+    out_r[i] *= output_level_;
+  }
+}
+
 void Engine::ProcessCv(uint16_t& out0, uint16_t& out1) {
   // Example: Write values to the DAC outputs
   // For DAC output, values typically range from 0-4095 for 12-bit DAC
 
-  ++testCounter;
-  if (testCounter > 20) {
-    testCounter = 0;
-    ++testRamp;
-  }
-  if (testRamp > 4095) {
-    testRamp = 0;
-  }
-  out0 = testRamp;
-  out1 = testRamp;
+  // ++testCounter;
+  // if (testCounter > 20) {
+  //   testCounter = 0;
+  //   ++testRamp;
+  // }
+  // if (testRamp > 4095) {
+  //   testRamp = 0;
+  // }
+  // out0 = testRamp;
+  // out1 = testRamp;
 
   // out0 = (noise_.Process() * 0.5 + 1) * 4095;
   // out1 = (noise_.Process() * 0.5 + 1) * 4095;

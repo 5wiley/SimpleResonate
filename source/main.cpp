@@ -23,22 +23,8 @@ void AudioCallback(AudioHandle::InputBuffer in,
   // 2. Update audio-rate CV once per block (not per-sample!)
   controls.UpdateCv(hw);
 
-  // 3. Process entire block through Part (Strings DSP)
-  engine.part_.Process(
-    engine.GetPerformanceState(),  // Strum, note, tonic, fm, chord
-    engine.GetPatch(),              // Structure, brightness, damping, position
-    IN_L,                           // Input buffer (const float*)
-    OUT_L,                          // Left output buffer (float*)
-    OUT_R,                          // Right output buffer (float*)
-    size                            // Block size (48 samples)
-  );
-
-  // 4. Apply output level scaling
-  float output_level = engine.GetOutputLevel();
-  for (size_t i = 0; i < size; i++) {
-    OUT_L[i] *= output_level;
-    OUT_R[i] *= output_level;
-  }
+  // 3. Process audio through Engine (handles Part internally)
+  engine.ProcessAudio(IN_L, OUT_L, OUT_R, size);
 }
 
 void DacCallback(uint16_t** out, size_t size) {
@@ -83,10 +69,40 @@ int main(void) {
     FixedCapStr<16> str0("ADC0:");
     str0.AppendFloat(hw.adc.GetFloat(0));
     hw.Print(str0);
+    hw.Print(",");
+
+    FixedCapStr<16> str1("ADC1:");
+    str1.AppendFloat(hw.adc.GetFloat(1));
+    hw.Print(str1);
+    hw.Print(",");
+
+    FixedCapStr<16> str2("ADC2:");
+    str2.AppendFloat(hw.adc.GetFloat(2));
+    hw.Print(str2);
+    hw.Print(",");
+
+    FixedCapStr<16> str3("ADC3:");
+    str3.AppendFloat(hw.adc.GetFloat(3));
+    hw.Print(str3);
+    hw.Print(",");
+
+    FixedCapStr<16> str4("ADC4:");
+    str4.AppendFloat(hw.adc.GetFloat(4));
+    hw.Print(str4);
+    hw.Print(",");
+
+    FixedCapStr<16> str5("ADC5:");
+    str5.AppendFloat(hw.adc.GetFloat(5));
+    hw.Print(str5);
+    hw.Print(",");
+
+    FixedCapStr<16> str6("ADC6:");
+    str6.AppendFloat(hw.adc.GetFloat(6));
+    hw.Print(str6);
     // hw.Print(",");
 
     hw.PrintLine("");  // Ends control sequence
-    System::Delay(1);
+    System::Delay(5);
   }
 }
 //

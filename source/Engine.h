@@ -55,23 +55,18 @@ public:
   void SetChord(int32_t chord);
   void SetStrum(bool strum);
 
-  // Part instance (public for direct access in main.cpp)
-  resonate::Part part_;
-
-  // State getters (for AudioCallback)
-  const resonate::Patch& GetPatch() const { return patch_; }
-  const resonate::PerformanceState& GetPerformanceState() const { return perf_state_; }
-  float GetOutputLevel() const { return output_level_; }
+  // Main audio processing method
+  void ProcessAudio(const float* in, float* out_l, float* out_r, size_t size);
 
   void ProcessCv(uint16_t& out0, uint16_t& out1);
 
 private:
+  // Part instance (original Rings DSP code)
+  resonate::Part part_;
+
   // DSP state structures
   resonate::Patch patch_;
   resonate::PerformanceState perf_state_;
-
-  // Reverb buffer (allocated in SDRAM)
-  uint16_t* reverb_buffer_ = nullptr;
 
   // Trigger edge detection
   bool prev_trigger_state_ = false;
