@@ -17,8 +17,8 @@ void AudioCallback(AudioHandle::InputBuffer in,
                    AudioHandle::OutputBuffer out,
                    size_t size) {
   // 1. Update control-rate parameters once per block
-  controls.UpdateParameter(hw);
-  controls.Process();  // Apply smoothing
+  // controls.UpdateParameter(hw);
+  // controls.Process();  // Apply smoothing
 
   // 2. Update audio-rate CV once per block (not per-sample!)
   controls.UpdateCv(hw);
@@ -31,7 +31,7 @@ void DacCallback(uint16_t** out, size_t size) {
   // controls.UpdateParameter(hw);
   // controls.Process();
   for (size_t i = 0; i < size; i++) {
-    controls.UpdateCv(hw);
+    // controls.UpdateCv(hw);
     engine.ProcessCv(out[0][i], out[1][i]);
   }
 }
@@ -63,7 +63,12 @@ int main(void) {
   hw.StartAudio(AudioCallback);
 
   while (1) {
-    // hw.dac.WriteValue(DacHandle::Channel::BOTH, 4000);
+    // Update Parameters
+    controls.UpdateParameter(hw);
+    controls.UpdateCv(hw);
+    controls.Process();  // Apply smoothing
+
+    // Serial Monitor
     hw.Print(">");  // Begins control sequence
 
     FixedCapStr<16> str0("ADC0:");
