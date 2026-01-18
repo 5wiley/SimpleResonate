@@ -28,8 +28,6 @@ void Engine::Init(const float sample_rate) {
   perf_state_.tonic = 48.0f;             // C3
   perf_state_.fm = 0.0f;
   perf_state_.chord = 0;
-
-  prev_trigger_state_ = false;
 }
 
 // void Engine::SetStringPitch(const float nn) {
@@ -110,13 +108,9 @@ void Engine::SetChord(int32_t chord) {
 }
 
 void Engine::SetStrum(bool strum) {
-  // Detect rising edge for trigger
-  if (strum && !prev_trigger_state_) {
-    perf_state_.strum = true;
-  } else if (!strum) {
-    perf_state_.strum = false;
-  }
-  prev_trigger_state_ = strum;
+  // Controls already provides trigger pulses (one-frame high on rising edge)
+  // Just pass through directly to the performance state
+  perf_state_.strum = strum;
 }
 
 void Engine::ProcessAudio(const float* in, float* out_l, float* out_r, size_t size) {

@@ -68,9 +68,6 @@ private:
   resonate::Patch patch_;
   resonate::PerformanceState perf_state_;
 
-  // Trigger edge detection
-  bool prev_trigger_state_ = false;
-
   float output_level_ = 0.5f;
 
   int testCounter = 0;

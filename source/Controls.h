@@ -49,7 +49,8 @@ private:
   Parameters params_;
   CVs cv_;
 
-  // daisy::Switch del_sw_;
+  daisy::Switch strum_button_;
+  bool prev_strum_cv_gate_ = false;  // For CV gate-to-trigger conversion
 
   void initADCs(daisy::DaisySeed& hw);
   void registerParams(Engine& engine);

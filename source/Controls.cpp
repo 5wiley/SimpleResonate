@@ -36,13 +36,19 @@ static constexpr daisy::Pin kPositionAdcPin = daisy::seed::A3;      // 33
 static constexpr daisy::Pin kOutputVolumeAdcPin = daisy::seed::A4;  // 34
 static constexpr daisy::Pin kNoteCvPin = daisy::seed::A5;           // 35
 static constexpr daisy::Pin kStrumCvPin = daisy::seed::A6;          // 36
+static constexpr daisy::Pin kStrumButtonPin = daisy::seed::D7;      // 06
 
 void Controls::Init(DaisySeed& hw, Engine& engine) {
   params_.Init(hw.AudioSampleRate() / hw.AudioBlockSize());
   // CVRegistry doesn't need Init() - it works at audio rate without smoothing
-  // del_sw_.Init(static_cast<Pin>(kDelaySwitchPin), 1000.0f,
-  // Switch::TYPE_TOGGLE,
-  //              Switch::POLARITY_INVERTED, GPIO::Pull::PULLUP);
+
+  strum_button_.Init(
+      kStrumButtonPin,
+      1000.0f,
+      Switch::TYPE_MOMENTARY,
+      Switch::POLARITY_INVERTED
+  );
+
   initADCs(hw);
   registerParams(engine);
   registerCVs(engine);
@@ -53,12 +59,28 @@ void Controls::UpdateParameter(DaisySeed& hw) {
   params_.UpdateNormalized(Parameter::Brightness, hw.adc.GetFloat(1));
   params_.UpdateNormalized(Parameter::Damping, hw.adc.GetFloat(2));
   params_.UpdateNormalized(Parameter::Position, hw.adc.GetFloat(3));
+
+  // Debounce button
+  strum_button_.Debounce();
+
+  // Gate-to-trigger conversion for CV input (detect rising edge)
+  bool strum_cv_gate = hw.adc.GetFloat(6) > 0.5f;  // 2.5V threshold for 0-5V input
+  bool strum_cv_trigger = strum_cv_gate && !prev_strum_cv_gate_;
+  prev_strum_cv_gate_ = strum_cv_gate;
+
+  // Button trigger (RisingEdge() already handles edge detection)
+  bool button_trigger = strum_button_.RisingEdge();
+
+  // Combine triggers: output trigger pulse if either source triggers
+  bool combined_trigger = strum_cv_trigger || button_trigger;
+
+  // Always update the CV value to ensure it goes high then low
+  cv_.UpdateNormalized(CV::Strum, combined_trigger ? 1.0f : 0.0f);
 }
 
 void Controls::UpdateCv(DaisySeed& hw) {
   cv_.UpdateNormalized(CV::OutputVolume, hw.adc.GetFloat(4));
   cv_.UpdateNormalized(CV::Note, hw.adc.GetFloat(5));
-  cv_.UpdateNormalized(CV::Strum, hw.adc.GetFloat(6));
 }
 
 void Controls::initADCs(DaisySeed& hw) {
@@ -107,8 +129,6 @@ void Controls::registerCVs(Engine& engine) {
 
   // Strum: Gate/trigger input, >2.5V triggers new note
   cv_.Register(CV::Strum, 0.0f, 0.0f, 1.0f,
-               [&engine](float val) {
-                 engine.SetStrum(val > 0.5f);  // 2.5V threshold
-               },
+              std::bind(&Engine::SetStrum, &engine, _1),
                daisysp::Mapping::LINEAR);
 }
